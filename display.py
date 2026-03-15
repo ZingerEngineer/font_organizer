@@ -103,7 +103,7 @@ def scan_progress(label: str, theme: ThemeSpec) -> Generator[Progress, None, Non
 
 def build_proposal_tree(
     root_dir: Path,
-    moves: list[tuple[Path, str]],
+    moves: list[tuple[Path, str, str]],
     trashes: list[Path],
     theme: ThemeSpec,
     empty_dirs: list[Path] | None = None,
@@ -112,7 +112,7 @@ def build_proposal_tree(
 
     Args:
         root_dir:   The target root directory.
-        moves:      List of (source_path, family_name) pairs for fonts to be moved.
+        moves:      List of (source_path, dir_name, new_filename) triples.
         trashes:    List of non-font file paths to be sent to the recycle bin.
         theme:      Active ThemeSpec for styling.
         empty_dirs: Pre-existing empty directories that will be trashed.
@@ -123,39 +123,32 @@ def build_proposal_tree(
     root_label = f"[{root_style}]{root_dir.name}/[/]" if root_style else f"{root_dir.name}/"
     tree = Tree(root_label)
 
-    # Group fonts by family, preserving sort order
-    by_family: dict[str, list[Path]] = defaultdict(list)
-    skipped: list[tuple[Path, str]] = []
+    # Group by (normalized) family dir name
+    # Value: list of (source, new_filename, already_organized)
+    by_family: dict[str, list[tuple[Path, str, bool]]] = defaultdict(list)
 
-    for source, family_name in moves:
-        if source.parent.name == family_name:
-            skipped.append((source, family_name))
-        else:
-            by_family[family_name].append(source)
+    for source, dir_name, new_filename in moves:
+        already = source.parent.name == dir_name and source.name == new_filename
+        by_family[dir_name].append((source, new_filename, already))
 
-    # Already-organized fonts shown under their existing family dirs
-    for source, family_name in skipped:
-        if family_name not in by_family:
-            by_family[family_name] = []
-
-    for family_name in sorted(by_family.keys()):
+    for dir_name in sorted(by_family.keys()):
         family_style = theme.tree_family if theme.tree_family else "bold"
         family_label = (
-            f"[{family_style}]{family_name}/[/]"
+            f"[{family_style}]{dir_name}/[/]"
             if family_style
-            else f"{family_name}/"
+            else f"{dir_name}/"
         )
         branch = tree.add(family_label)
 
-        sources = sorted(by_family[family_name], key=lambda p: p.name)
-        for source in sources:
-            already = source.parent.name == family_name
+        entries = sorted(by_family[dir_name], key=lambda x: x[1])
+        for source, new_filename, already in entries:
             file_style = theme.tree_skipped if already else (theme.tree_file if theme.tree_file else "")
             prefix = "[SKIP] " if already else ""
+            label = f"{prefix}{new_filename}"
             if file_style:
-                branch.add(f"[{file_style}]{prefix}{source.name}[/]")
+                branch.add(f"[{file_style}]{label}[/]")
             else:
-                branch.add(f"{prefix}{source.name}")
+                branch.add(label)
 
     # Trash section — non-font files + pre-existing empty dirs
     has_trash = trashes or empty_dirs

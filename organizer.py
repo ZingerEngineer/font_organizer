@@ -6,8 +6,8 @@ from pathlib import Path
 
 import display
 from cli import Config
-from filesystem import move_font, trash_file
-from metadata import get_family_name
+from filesystem import make_font_filename, move_font, trash_file
+from metadata import get_family_name, get_variant_name
 from scanner import find_empty_dirs, is_font_file, scan_directory
 from themes import ThemeSpec, get_theme
 
@@ -27,18 +27,35 @@ def _log(tag: str, message: str, theme: ThemeSpec, config: Config) -> None:
 # Helpers
 # ---------------------------------------------------------------------------
 
-def _compute_moves(fonts: list[Path]) -> list[tuple[Path, str]]:
-    """Return (path, family_name) pairs for tree preview. No filesystem side effects."""
-    result: list[tuple[Path, str]] = []
+def _normalize_dir_name(family_name: str) -> str:
+    """Title-case the family name for use as a directory name.
+
+    "open sans" → "Open Sans", "ROBOTO" → "Roboto", "arial" → "Arial"
+    """
+    return family_name.strip().title()
+
+
+def _compute_moves(fonts: list[Path]) -> list[tuple[Path, str, str]]:
+    """Return (path, dir_name, new_filename) triples for tree preview.
+
+    dir_name is the normalized (title-cased) family directory name.
+    new_filename is the canonical lowercase renamed filename.
+    No filesystem side effects.
+    """
+    result: list[tuple[Path, str, str]] = []
     for path in fonts:
         family_name, _ = get_family_name(path)
         if family_name:
-            result.append((path, family_name))
+            variant_name, _ = get_variant_name(path, family_name)
+            dir_name = _normalize_dir_name(family_name)
+            new_filename = make_font_filename(family_name, variant_name, path.suffix)
+            result.append((path, dir_name, new_filename))
     return result
 
 
-def _is_already_organized(path: Path, family_name: str) -> bool:
-    return path.parent.name == family_name
+def _is_already_organized(path: Path, dir_name: str, new_filename: str) -> bool:
+    """Return True only when the file is in the correct dir AND already has the right name."""
+    return path.parent.name == dir_name and path.name == new_filename
 
 
 # ---------------------------------------------------------------------------
@@ -46,28 +63,39 @@ def _is_already_organized(path: Path, family_name: str) -> bool:
 # ---------------------------------------------------------------------------
 
 def process_font(path: Path, root_dir: Path, config: Config, theme: ThemeSpec) -> None:
-    """Extract family name, check organization status, move if needed."""
-    family_name, source = get_family_name(path)
+    """Extract family name and variant, rename and move font into its family directory."""
+    family_name, fam_source = get_family_name(path)
 
     if not family_name:
         _log("ERROR", f"Unable to determine family name: {path.name}", theme, config)
         return
 
-    _log("VERBOSE", f"Family '{family_name}' (source: {source}) — {path.name}", theme, config)
+    variant_name, var_source = get_variant_name(path, family_name)
+    dir_name = _normalize_dir_name(family_name)
+    new_filename = make_font_filename(family_name, variant_name, path.suffix)
+    family_dir = root_dir / dir_name
 
-    if _is_already_organized(path, family_name):
-        _log("SKIP", f"{path.name} — already in {family_name}/", theme, config)
+    _log(
+        "VERBOSE",
+        f"Family '{dir_name}' ({fam_source}), variant '{variant_name}' ({var_source}) — {path.name}",
+        theme,
+        config,
+    )
+
+    if _is_already_organized(path, dir_name, new_filename):
+        _log("SKIP", f"{path.name} — already organized", theme, config)
         return
 
-    family_dir = root_dir / family_name
-
     if config.dry_run:
-        _log("DRY", f"Would move {path.name} → {family_name}/", theme, config)
+        if path.parent == family_dir:
+            _log("DRY", f"Would rename {path.name} → {new_filename}", theme, config)
+        else:
+            _log("DRY", f"Would move {path.name} → {dir_name}/{new_filename}", theme, config)
         return
 
     try:
-        destination = move_font(path, family_dir, dry_run=False)
-        _log("FONT", f"{path.name} → {destination.parent.name}/", theme, config)
+        destination = move_font(path, family_dir, dry_run=False, new_name=new_filename)
+        _log("FONT", f"{path.name} → {destination.parent.name}/{destination.name}", theme, config)
     except PermissionError:
         _log("ERROR", f"Permission denied: {path.name} — try: sudo font-organizer {path.parent}", theme, config)
     except Exception as exc:
