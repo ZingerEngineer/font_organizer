@@ -1,0 +1,13 @@
+# Font Organizer dependencies
+# Install with: pip install -r requirements.txt
+
+# Extracts font metadata (family name, weight, style) from OpenType name tables
+fonttools>=4.0.0
+
+# Moves files to the OS recycle bin / trash (cross-platform)
+# Windows → Recycle Bin, macOS → Trash, Linux → ~/.local/share/Trash
+send2trash>=1.8.0
+
+# Optional: required for WOFF2 font support
+# Without this, WOFF2 files fall back to filename-based family detection
+brotli>=1.0.9

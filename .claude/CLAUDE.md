@@ -424,3 +424,10 @@ The script should **not**:
 * modify font metadata
 * download fonts
 * validate font licensing
+
+---
+
+# Code Style Rules
+
+- Modular coding: no single file may exceed 500 lines of code
+- All markdown documentation, plans, and explanations created within this project go inside the `docs/` directory at the project root
