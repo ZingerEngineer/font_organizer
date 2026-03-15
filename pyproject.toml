@@ -11,10 +11,11 @@ dependencies = [
     "fonttools>=4.0.0",
     "send2trash>=1.8.0",
     "brotli>=1.0.9",
+    "rich>=13.0.0",
 ]
 
 [project.scripts]
 font-organizer = "font_organizer:main"
 
 [tool.setuptools]
-py-modules = ["font_organizer", "cli", "scanner", "metadata", "filesystem", "organizer"]
+py-modules = ["font_organizer", "cli", "scanner", "metadata", "filesystem", "organizer", "themes", "display"]

@@ -11,3 +11,6 @@ send2trash>=1.8.0
 # Optional: required for WOFF2 font support
 # Without this, WOFF2 files fall back to filename-based family detection
 brotli>=1.0.9
+
+# Terminal UI: colored output, tree display, progress spinner, interactive prompts
+rich>=13.0.0

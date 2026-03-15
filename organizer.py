@@ -4,29 +4,40 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import display
 from cli import Config
 from filesystem import move_font, trash_file
 from metadata import get_family_name
-from scanner import partition_files
+from scanner import is_font_file, scan_directory
+from themes import ThemeSpec, get_theme
 
 
 # ---------------------------------------------------------------------------
-# Logging
+# Internal logging shim
 # ---------------------------------------------------------------------------
 
-def log(tag: str, message: str, config: Config) -> None:
-    """Print a tagged log line. Suppresses [VERBOSE] when verbose=False."""
+def _log(tag: str, message: str, theme: ThemeSpec, config: Config) -> None:
+    """Gate VERBOSE lines, then delegate rendering to display."""
     if tag == "VERBOSE" and not config.verbose:
         return
-    print(f"[{tag}] {message}")
+    display.render_log_line(tag, message, theme)
 
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
 
-def is_already_organized(path: Path, family_name: str) -> bool:
-    """Return True if the font already lives inside its correct family directory."""
+def _compute_moves(fonts: list[Path]) -> list[tuple[Path, str]]:
+    """Return (path, family_name) pairs for tree preview. No filesystem side effects."""
+    result: list[tuple[Path, str]] = []
+    for path in fonts:
+        family_name, _ = get_family_name(path)
+        if family_name:
+            result.append((path, family_name))
+    return result
+
+
+def _is_already_organized(path: Path, family_name: str) -> bool:
     return path.parent.name == family_name
 
 
@@ -34,48 +45,48 @@ def is_already_organized(path: Path, family_name: str) -> bool:
 # Per-file processors
 # ---------------------------------------------------------------------------
 
-def process_font(path: Path, root_dir: Path, config: Config) -> None:
+def process_font(path: Path, root_dir: Path, config: Config, theme: ThemeSpec) -> None:
     """Extract family name, check organization status, move if needed."""
     family_name, source = get_family_name(path)
 
     if not family_name:
-        log("ERROR", f"Unable to determine family name: {path.name}", config)
+        _log("ERROR", f"Unable to determine family name: {path.name}", theme, config)
         return
 
-    log("VERBOSE", f"Family '{family_name}' (source: {source}) — {path.name}", config)
+    _log("VERBOSE", f"Family '{family_name}' (source: {source}) — {path.name}", theme, config)
 
-    if is_already_organized(path, family_name):
-        log("SKIP", f"{path.name} — already in {family_name}/", config)
+    if _is_already_organized(path, family_name):
+        _log("SKIP", f"{path.name} — already in {family_name}/", theme, config)
         return
 
     family_dir = root_dir / family_name
 
     if config.dry_run:
-        log("DRY", f"Would move {path.name} → {family_name}/", config)
+        _log("DRY", f"Would move {path.name} → {family_name}/", theme, config)
         return
 
     try:
         destination = move_font(path, family_dir, dry_run=False)
-        log("FONT", f"{path.name} → {destination.parent.name}/", config)
+        _log("FONT", f"{path.name} → {destination.parent.name}/", theme, config)
     except PermissionError:
-        log("ERROR", f"Permission denied: {path.name} — try: sudo font-organizer {path.parent}", config)
+        _log("ERROR", f"Permission denied: {path.name} — try: sudo font-organizer {path.parent}", theme, config)
     except Exception as exc:
-        log("ERROR", f"Failed to move {path.name}: {exc}", config)
+        _log("ERROR", f"Failed to move {path.name}: {exc}", theme, config)
 
 
-def process_non_font(path: Path, config: Config) -> None:
+def process_non_font(path: Path, config: Config, theme: ThemeSpec) -> None:
     """Trash a non-font file."""
     if config.dry_run:
-        log("DRY", f"Would trash {path.name}", config)
+        _log("DRY", f"Would trash {path.name}", theme, config)
         return
 
     try:
         trash_file(path, dry_run=False)
-        log("TRASH", f"{path.name} → recycle bin", config)
+        _log("TRASH", f"{path.name} → recycle bin", theme, config)
     except PermissionError:
-        log("ERROR", f"Permission denied: {path.name} — try: sudo font-organizer {path.parent}", config)
+        _log("ERROR", f"Permission denied: {path.name} — try: sudo font-organizer {path.parent}", theme, config)
     except RuntimeError as exc:
-        log("ERROR", str(exc), config)
+        _log("ERROR", str(exc), theme, config)
 
 
 # ---------------------------------------------------------------------------
@@ -83,17 +94,58 @@ def process_non_font(path: Path, config: Config) -> None:
 # ---------------------------------------------------------------------------
 
 def run(config: Config) -> None:
-    """Scan directory and process all files."""
-    log("VERBOSE", f"Scanning: {config.directory}", config)
+    """Scan directory, preview changes, confirm, then execute."""
 
-    fonts, non_fonts = partition_files(config.directory)
+    # 1. Resolve theme — run picker if requested
+    theme_name = config.theme if config.theme != "pick" else "default"
+    theme = get_theme(theme_name)
 
-    log("VERBOSE", f"Found {len(fonts)} font(s), {len(non_fonts)} non-font(s)", config)
+    if config.theme == "pick":
+        if config.interactive:
+            chosen = display.run_theme_picker("default")
+            theme = get_theme(chosen)
+        else:
+            display.render_log_line(
+                "VERBOSE",
+                "--theme pick requires an interactive terminal. Using 'default'.",
+                theme,
+            )
 
-    # Pass 1 — move fonts into family directories
+    # 2. Scan with progress spinner
+    _log("VERBOSE", f"Scanning: {config.directory}", theme, config)
+
+    fonts: list[Path] = []
+    non_fonts: list[Path] = []
+
+    with display.scan_progress("Scanning for fonts...", theme) as progress:
+        task = progress.add_task("", total=None)
+        for path in scan_directory(config.directory):
+            progress.advance(task)
+            if is_font_file(path):
+                fonts.append(path)
+            else:
+                non_fonts.append(path)
+
+    # 3. Summary panel
+    display.print_summary_panel(len(fonts), len(non_fonts), config.directory, theme)
+
+    # 4. Tree preview (unless suppressed)
+    if not config.no_tree:
+        moves = _compute_moves(fonts)
+        tree = display.build_proposal_tree(config.directory, moves, non_fonts, theme)
+        display.print_tree(tree)
+
+    # 5. Confirmation gate (skip in dry-run — it's already preview-only)
+    if not config.dry_run and config.interactive:
+        if not display.confirm_proceed(theme):
+            _log("VERBOSE", "Aborted by user.", theme, config)
+            return
+
+    # 6. Execute — Pass 1: fonts
+    _log("VERBOSE", f"Found {len(fonts)} font(s), {len(non_fonts)} non-font(s)", theme, config)
     for path in fonts:
-        process_font(path, config.directory, config)
+        process_font(path, config.directory, config, theme)
 
-    # Pass 2 — trash non-font files
+    # Pass 2: non-fonts
     for path in non_fonts:
-        process_non_font(path, config)
+        process_non_font(path, config, theme)
