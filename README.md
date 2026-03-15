@@ -227,4 +227,5 @@ Use `--theme pick` for a live swatch picker before organizing.
 
 ## License
 
-MIT
+MIT — see [LICENSE](LICENSE).
+Free to use, modify, and distribute. No conditions beyond keeping the copyright notice.
