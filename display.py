@@ -12,8 +12,9 @@ from pathlib import Path
 from rich.console import Console
 from rich.panel import Panel
 from rich.progress import BarColumn, Progress, SpinnerColumn, TaskProgressColumn, TextColumn
-from rich.prompt import Confirm, Prompt
+from rich.prompt import Prompt
 from rich.table import Table
+from rich.text import Text
 from rich.tree import Tree
 
 from themes import ThemeSpec, THEMES, THEME_NAMES, theme_preview_text
@@ -25,10 +26,10 @@ from themes import ThemeSpec, THEMES, THEME_NAMES, theme_preview_text
 
 def make_console(force_terminal: bool = False) -> Console:
     """Return a Console with highlight=False to suppress auto-highlighting of paths."""
-    return Console(highlight=False, force_terminal=force_terminal)
+    return Console(highlight=False, force_terminal=force_terminal, color_system="truecolor")
 
 
-console: Console = make_console()
+console: Console = make_console(force_terminal=True)
 
 
 # ---------------------------------------------------------------------------
@@ -47,35 +48,69 @@ def is_interactive() -> bool:
 
 
 # ---------------------------------------------------------------------------
-# Log line rendering
+# Banner
 # ---------------------------------------------------------------------------
 
-_TAG_STYLE_MAP: dict[str, str] = {
-    "FONT":    "tag_font",
-    "TRASH":   "tag_trash",
-    "SKIP":    "tag_skip",
-    "DRY":     "tag_dry",
-    "ERROR":   "tag_error",
-    "VERBOSE": "tag_verbose",
+_BANNER_LINES = [
+    "  ███████╗ ██████╗ ███╗   ██╗████████╗███████╗",
+    "  ██╔════╝██╔═══██╗████╗  ██║╚══██╔══╝██╔════╝",
+    "  █████╗  ██║   ██║██╔██╗ ██║   ██║   ███████╗",
+    "  ██╔══╝  ██║   ██║██║╚██╗██║   ██║   ╚════██║",
+    "  ██║     ╚██████╔╝██║ ╚████║   ██║   ███████║",
+    "  ╚═╝      ╚═════╝ ╚═╝  ╚═══╝   ╚═╝   ╚══════╝",
+    "  ██████╗ ██████╗  ██████╗  █████╗ ███╗   ██╗██╗███████╗███████╗██████╗ ",
+    "  ██╔══██╗██╔══██╗██╔════╝ ██╔══██╗████╗  ██║██║╚══███╔╝██╔════╝██╔══██╗",
+    "  ██║  ██║██████╔╝██║  ███╗███████║██╔██╗ ██║██║  ███╔╝ █████╗  ██████╔╝",
+    "  ██║  ██║██╔══██╗██║   ██║██╔══██║██║╚██╗██║██║ ███╔╝  ██╔══╝  ██╔══██╗",
+    "  ██████╔╝██║  ██║╚██████╔╝██║  ██║██║ ╚████║██║███████╗███████╗██║  ██║",
+    "  ╚═════╝ ╚═╝  ╚═╝ ╚═════╝ ╚═╝  ╚═╝╚═╝  ╚═══╝╚═╝╚══════╝╚══════╝╚═╝  ╚═╝",
+]
+
+
+def print_banner(theme: ThemeSpec) -> None:
+    """Print a colored ASCII-art banner in the theme's primary color."""
+    style = theme.tree_family or "bold cyan"
+    for line in _BANNER_LINES:
+        console.print(f"[{style}]{line}[/]")
+    console.print()
+
+
+# ---------------------------------------------------------------------------
+# Log line rendering  (OMZ-style: icon ❯ [ TAG ] message)
+# ---------------------------------------------------------------------------
+
+_TAG_META: dict[str, tuple[str, str]] = {
+    # tag  → (icon, theme_attr)
+    "FONT":    ("◆", "tag_font"),
+    "TRASH":   ("⊗", "tag_trash"),
+    "SKIP":    ("○", "tag_skip"),
+    "DRY":     ("◇", "tag_dry"),
+    "ERROR":   ("✗", "tag_error"),
+    "VERBOSE": ("·", "tag_verbose"),
 }
+
+_ARROW = "❯"
 
 
 def render_log_line(tag: str, message: str, theme: ThemeSpec) -> None:
-    """Print one styled log line with a background-colored pill tag.
+    """Print one styled log line — OMZ agnoster style.
 
-    Format: [ TAG     ] message
-    The tag is padded to a fixed width and wrapped in background-color markup.
-    Unknown tags fall back to tag_verbose style.
+    Format:  icon  ❯  [ TAG     ]  message
     """
-    attr = _TAG_STYLE_MAP.get(tag, "tag_verbose")
+    icon, attr = _TAG_META.get(tag, ("·", "tag_verbose"))
     style = getattr(theme, attr, "")
-    # Pill: space + tag padded to 7 chars + space (9 chars total)
+
     pill_text = f" {tag:<7} "
     if style:
         tag_str = f"[{style}]{pill_text}[/]"
+        icon_str = f"[{style}]{icon}[/]"
+        arrow_str = f"[dim]{_ARROW}[/dim]"
     else:
         tag_str = pill_text
-    console.print(f"{tag_str} {message}")
+        icon_str = icon
+        arrow_str = _ARROW
+
+    console.print(f"{icon_str} {arrow_str} {tag_str}  {message}")
 
 
 # ---------------------------------------------------------------------------
@@ -127,7 +162,6 @@ def build_proposal_tree(
     tree = Tree(root_label)
 
     # Group by (normalized) family dir name
-    # Value: list of (source, new_filename, already_organized)
     by_family: dict[str, list[tuple[Path, str, bool]]] = defaultdict(list)
 
     for source, dir_name, new_filename in moves:
@@ -218,17 +252,72 @@ def print_panel(content: str, title: str, theme: ThemeSpec) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Interactive confirmation
+# Interactive tree view with looping menu (replaces print_tree + confirm_proceed)
 # ---------------------------------------------------------------------------
 
-def confirm_proceed(theme: ThemeSpec) -> bool:
-    """Ask the user whether to apply changes. Returns True if confirmed."""
-    console.print()
-    return Confirm.ask(
-        f"[{theme.panel_border}]Apply these changes?[/]",
-        default=False,
-        console=console,
+def interactive_tree_view(
+    tree: Tree,
+    theme: ThemeSpec,
+    item_count: int,
+    interactive: bool = True,
+) -> bool:
+    """Show the proposal tree then present an A/V/C menu. Returns True to apply.
+
+    Menu options:
+      A — Apply changes
+      V — View changes again (re-renders tree, loops)
+      C — Cancel
+
+    In non-interactive mode (piped/scripted), tree is printed once and True is returned
+    immediately (no prompt).
+    """
+    use_pager = interactive and item_count > console.height
+
+    while True:
+        print_tree(tree, pager=use_pager)
+
+        if not interactive:
+            return True
+
+        console.print()
+        _print_menu(theme)
+        choice = _ask_menu_choice(theme)
+
+        if choice == "a":
+            return True
+        if choice == "c":
+            return False
+        # "v" — loop and show tree again
+
+
+def _print_menu(theme: ThemeSpec) -> None:
+    """Render the OMZ-style A/V/C action menu."""
+    border = theme.panel_border
+    font_style = theme.tag_font
+    skip_style = theme.tag_skip
+    error_style = theme.tag_error
+
+    console.print(
+        f"  [{font_style}] A [/]  Apply changes   "
+        f"[{skip_style}] V [/]  View again   "
+        f"[{error_style}] C [/]  Cancel"
     )
+    console.print()
+
+
+def _ask_menu_choice(theme: ThemeSpec) -> str:
+    """Ask user for A/V/C and return lowercase letter."""
+    border = theme.panel_border
+    arrow = f"[{border}]{_ARROW}[/]"
+    raw = Prompt.ask(
+        f"  {arrow} Choice",
+        choices=["a", "A", "v", "V", "c", "C"],
+        default="a",
+        console=console,
+        show_choices=False,
+        show_default=False,
+    )
+    return raw.lower()
 
 
 # ---------------------------------------------------------------------------

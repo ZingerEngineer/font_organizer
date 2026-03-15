@@ -264,26 +264,31 @@ def run(config: Config) -> None:
             config,
         )
 
-    # 5. Summary panel
+    # 5. Banner + summary panel
+    display.print_banner(theme)
     display.print_summary_panel(len(fonts), len(non_fonts), config.directory, theme)
 
-    # 6. Tree preview (unless suppressed)
+    # 6. Tree preview with interactive A/V/C menu (unless suppressed)
     if not config.no_tree:
         moves = _compute_moves(fonts, raw_family_map, canonical_map)
         tree = display.build_proposal_tree(
             config.directory, moves, non_fonts, theme, empty_dirs=pre_empty
         )
         total_items = len(moves) + len(non_fonts) + len(pre_empty)
-        use_pager = config.interactive and total_items > display.console.height
-        display.print_tree(tree, pager=use_pager)
 
-    # 7. Confirmation gate (skip in dry-run — it's already preview-only)
-    if not config.dry_run and config.interactive:
-        if not display.confirm_proceed(theme):
-            _log("VERBOSE", "Aborted by user.", theme, config)
-            return
+        if not config.dry_run:
+            apply = display.interactive_tree_view(
+                tree, theme, total_items, interactive=config.interactive
+            )
+            if not apply:
+                _log("VERBOSE", "Aborted by user.", theme, config)
+                return
+        else:
+            # Dry-run: just show the tree, no prompt
+            use_pager = config.interactive and total_items > display.console.height
+            display.print_tree(tree, pager=use_pager)
 
-    # 8. Execute — Pass 1: fonts (with pre-move canonical grouping applied)
+    # 7. Execute — Pass 1: fonts (with pre-move canonical grouping applied)
     _log("VERBOSE", f"Found {len(fonts)} font(s), {len(non_fonts)} non-font(s)", theme, config)
     for path in fonts:
         raw_name = raw_family_map.get(path, "")

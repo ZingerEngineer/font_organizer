@@ -32,37 +32,37 @@ class ThemeSpec:
 
 THEMES: dict[str, ThemeSpec] = {
     "default": ThemeSpec(
-        # Tags: background pill style (foreground on background)
-        tag_font="bold white on dark_cyan",
-        tag_trash="bold black on gold1",
-        tag_skip="white on grey46",
-        tag_dry="bold white on dodger_blue3",
-        tag_error="bold white on red3",
-        tag_verbose="white on grey30",
+        # Tags: background pill — foreground on background (OMZ agnoster-inspired)
+        tag_font="bold black on color(43)",       # teal green bg
+        tag_trash="bold black on color(214)",     # warm orange bg
+        tag_skip="bold white on color(240)",      # mid-grey bg
+        tag_dry="bold black on color(75)",        # sky blue bg
+        tag_error="bold white on color(196)",     # vivid red bg
+        tag_verbose="white on color(237)",        # dark grey bg
         # Tree
-        tree_root="bold white",
-        tree_family="bold cyan",
-        tree_file="white",
-        tree_trash="yellow",
-        tree_skipped="dim white",
-        panel_border="cyan",
-        progress_bar="cyan",
+        tree_root="bold color(255)",
+        tree_family="bold color(43)",
+        tree_file="color(252)",
+        tree_trash="color(214)",
+        tree_skipped="dim color(245)",
+        panel_border="color(43)",
+        progress_bar="color(43)",
         spinner="dots",
     ),
     "neon": ThemeSpec(
-        tag_font="bold black on bright_green",
-        tag_trash="bold black on bright_magenta",
-        tag_skip="bold white on grey27",
-        tag_dry="bold black on bright_cyan",
-        tag_error="bold white on bright_red",
-        tag_verbose="white on grey19",
-        tree_root="bold bright_white",
-        tree_family="bold bright_green",
-        tree_file="bright_green",
-        tree_trash="bright_magenta",
-        tree_skipped="dim bright_green",
-        panel_border="bright_green",
-        progress_bar="bright_green",
+        tag_font="bold black on color(46)",       # neon green
+        tag_trash="bold black on color(201)",     # hot pink
+        tag_skip="bold white on color(238)",
+        tag_dry="bold black on color(51)",        # bright cyan
+        tag_error="bold black on color(196)",     # red
+        tag_verbose="white on color(234)",
+        tree_root="bold color(255)",
+        tree_family="bold color(46)",
+        tree_file="color(46)",
+        tree_trash="color(201)",
+        tree_skipped="dim color(46)",
+        panel_border="color(46)",
+        progress_bar="color(46)",
         spinner="aesthetic",
     ),
     "pastel": ThemeSpec(
@@ -98,11 +98,11 @@ THEMES: dict[str, ThemeSpec] = {
         spinner="line",
     ),
     "dracula": ThemeSpec(
-        tag_font="bold black on color(84)",
-        tag_trash="bold black on color(212)",
+        tag_font="bold black on color(84)",       # green
+        tag_trash="bold black on color(212)",     # pink
         tag_skip="white on color(240)",
-        tag_dry="bold black on color(141)",
-        tag_error="bold white on color(203)",
+        tag_dry="bold black on color(141)",       # purple
+        tag_error="bold white on color(203)",     # red
         tag_verbose="dim white on color(238)",
         tree_root="bold color(255)",
         tree_family="bold color(141)",
