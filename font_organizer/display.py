@@ -17,7 +17,7 @@ from rich.table import Table
 from rich.text import Text
 from rich.tree import Tree
 
-from themes import ThemeSpec, THEMES, THEME_NAMES, theme_preview_text
+from .themes import ThemeSpec, THEMES, THEME_NAMES, theme_preview_text
 
 
 # ---------------------------------------------------------------------------

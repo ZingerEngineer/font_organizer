@@ -19,4 +19,4 @@ dependencies = [
 font-organizer = "font_organizer:main"
 
 [tool.setuptools]
-py-modules = ["font_organizer", "cli", "scanner", "metadata", "filesystem", "organizer", "themes", "display", "grouper"]
+packages = ["font_organizer"]

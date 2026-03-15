@@ -6,7 +6,7 @@ import argparse
 from dataclasses import dataclass
 from pathlib import Path
 
-from themes import THEME_NAMES
+from .themes import THEME_NAMES
 
 
 @dataclass(frozen=True)
@@ -20,7 +20,7 @@ class Config:
 
 
 def parse_args(argv: list[str] | None = None) -> Config:
-    from display import is_interactive
+    from .display import is_interactive
 
     parser = argparse.ArgumentParser(
         description="Organize font files by font family name."

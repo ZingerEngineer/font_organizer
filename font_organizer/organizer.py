@@ -4,13 +4,13 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import display
-import grouper
-from cli import Config
-from filesystem import make_font_filename, move_font, trash_file
-from metadata import get_family_name, get_variant_name
-from scanner import find_empty_dirs, is_font_file, scan_directory
-from themes import ThemeSpec, get_theme
+from . import display
+from . import grouper
+from .cli import Config
+from .filesystem import make_font_filename, move_font, trash_file
+from .metadata import get_family_name, get_variant_name
+from .scanner import find_empty_dirs, is_font_file, scan_directory
+from .themes import ThemeSpec, get_theme
 
 
 # ---------------------------------------------------------------------------
