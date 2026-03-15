@@ -8,7 +8,7 @@ import display
 from cli import Config
 from filesystem import move_font, trash_file
 from metadata import get_family_name
-from scanner import is_font_file, scan_directory
+from scanner import find_empty_dirs, is_font_file, scan_directory
 from themes import ThemeSpec, get_theme
 
 
@@ -89,6 +89,21 @@ def process_non_font(path: Path, config: Config, theme: ThemeSpec) -> None:
         _log("ERROR", str(exc), theme, config)
 
 
+def process_empty_dir(path: Path, config: Config, theme: ThemeSpec) -> None:
+    """Trash an empty directory."""
+    if config.dry_run:
+        _log("DRY", f"Would trash empty dir: {path.name}/", theme, config)
+        return
+
+    try:
+        trash_file(path, dry_run=False)
+        _log("TRASH", f"{path.name}/ → recycle bin (empty dir)", theme, config)
+    except PermissionError:
+        _log("ERROR", f"Permission denied: {path.name}/ — try: sudo font-organizer {path.parent}", theme, config)
+    except RuntimeError as exc:
+        _log("ERROR", str(exc), theme, config)
+
+
 # ---------------------------------------------------------------------------
 # Entry point
 # ---------------------------------------------------------------------------
@@ -126,22 +141,27 @@ def run(config: Config) -> None:
             else:
                 non_fonts.append(path)
 
-    # 3. Summary panel
+    # 3. Find pre-existing empty directories
+    pre_empty = find_empty_dirs(config.directory)
+
+    # 4. Summary panel
     display.print_summary_panel(len(fonts), len(non_fonts), config.directory, theme)
 
-    # 4. Tree preview (unless suppressed)
+    # 5. Tree preview (unless suppressed)
     if not config.no_tree:
         moves = _compute_moves(fonts)
-        tree = display.build_proposal_tree(config.directory, moves, non_fonts, theme)
+        tree = display.build_proposal_tree(
+            config.directory, moves, non_fonts, theme, empty_dirs=pre_empty
+        )
         display.print_tree(tree)
 
-    # 5. Confirmation gate (skip in dry-run — it's already preview-only)
+    # 6. Confirmation gate (skip in dry-run — it's already preview-only)
     if not config.dry_run and config.interactive:
         if not display.confirm_proceed(theme):
             _log("VERBOSE", "Aborted by user.", theme, config)
             return
 
-    # 6. Execute — Pass 1: fonts
+    # 7. Execute — Pass 1: fonts
     _log("VERBOSE", f"Found {len(fonts)} font(s), {len(non_fonts)} non-font(s)", theme, config)
     for path in fonts:
         process_font(path, config.directory, config, theme)
@@ -149,3 +169,16 @@ def run(config: Config) -> None:
     # Pass 2: non-fonts
     for path in non_fonts:
         process_non_font(path, config, theme)
+
+    # Pass 3: empty directories — loop handles cascading:
+    # trashing a deep empty dir may expose a now-empty parent
+    if not config.dry_run:
+        empties = find_empty_dirs(config.directory)
+        while empties:
+            for d in empties:
+                process_empty_dir(d, config, theme)
+            empties = find_empty_dirs(config.directory)
+    else:
+        # In dry-run show pre-existing empties; post-move empties are unpredictable
+        for d in pre_empty:
+            process_empty_dir(d, config, theme)

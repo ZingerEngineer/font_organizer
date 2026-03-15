@@ -106,14 +106,16 @@ def build_proposal_tree(
     moves: list[tuple[Path, str]],
     trashes: list[Path],
     theme: ThemeSpec,
+    empty_dirs: list[Path] | None = None,
 ) -> Tree:
     """Build a Rich Tree showing the proposed directory layout.
 
     Args:
-        root_dir: The target root directory.
-        moves:    List of (source_path, family_name) pairs for fonts to be moved.
-        trashes:  List of non-font paths to be sent to the recycle bin.
-        theme:    Active ThemeSpec for styling.
+        root_dir:   The target root directory.
+        moves:      List of (source_path, family_name) pairs for fonts to be moved.
+        trashes:    List of non-font file paths to be sent to the recycle bin.
+        theme:      Active ThemeSpec for styling.
+        empty_dirs: Pre-existing empty directories that will be trashed.
 
     Returns a Tree ready to print. Does not touch the filesystem.
     """
@@ -155,20 +157,29 @@ def build_proposal_tree(
             else:
                 branch.add(f"{prefix}{source.name}")
 
-    # Trash section
-    if trashes:
+    # Trash section — non-font files + pre-existing empty dirs
+    has_trash = trashes or empty_dirs
+    if has_trash:
         trash_style = theme.tree_trash if theme.tree_trash else "italic"
         trash_label = (
-            f"[{trash_style}][recycle bin][/]"
+            f"[{trash_style}]recycle bin[/]"
             if trash_style
-            else "[recycle bin]"
+            else "recycle bin"
         )
         trash_branch = tree.add(trash_label)
+
         for path in sorted(trashes, key=lambda p: p.name):
             if trash_style:
                 trash_branch.add(f"[{trash_style}]{path.name}[/]")
             else:
                 trash_branch.add(path.name)
+
+        for d in sorted(empty_dirs or [], key=lambda p: p.name):
+            label = f"{d.name}/  [dim](empty dir)[/dim]"
+            if trash_style:
+                trash_branch.add(f"[{trash_style}]{label}")
+            else:
+                trash_branch.add(label)
 
     return tree
 
