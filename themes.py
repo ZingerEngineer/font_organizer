@@ -32,12 +32,14 @@ class ThemeSpec:
 
 THEMES: dict[str, ThemeSpec] = {
     "default": ThemeSpec(
-        tag_font="bold cyan",
-        tag_trash="bold yellow",
-        tag_skip="dim white",
-        tag_dry="bold blue",
-        tag_error="bold red",
-        tag_verbose="dim cyan",
+        # Tags: background pill style (foreground on background)
+        tag_font="bold white on dark_cyan",
+        tag_trash="bold black on gold1",
+        tag_skip="white on grey46",
+        tag_dry="bold white on dodger_blue3",
+        tag_error="bold white on red3",
+        tag_verbose="white on grey30",
+        # Tree
         tree_root="bold white",
         tree_family="bold cyan",
         tree_file="white",
@@ -48,12 +50,12 @@ THEMES: dict[str, ThemeSpec] = {
         spinner="dots",
     ),
     "neon": ThemeSpec(
-        tag_font="bold bright_green",
-        tag_trash="bold bright_magenta",
-        tag_skip="dim green",
-        tag_dry="bold bright_cyan",
-        tag_error="bold bright_red",
-        tag_verbose="dim bright_green",
+        tag_font="bold black on bright_green",
+        tag_trash="bold black on bright_magenta",
+        tag_skip="bold white on grey27",
+        tag_dry="bold black on bright_cyan",
+        tag_error="bold white on bright_red",
+        tag_verbose="white on grey19",
         tree_root="bold bright_white",
         tree_family="bold bright_green",
         tree_file="bright_green",
@@ -64,12 +66,12 @@ THEMES: dict[str, ThemeSpec] = {
         spinner="aesthetic",
     ),
     "pastel": ThemeSpec(
-        tag_font="bold color(114)",
-        tag_trash="bold color(222)",
-        tag_skip="dim color(252)",
-        tag_dry="bold color(111)",
-        tag_error="bold color(210)",
-        tag_verbose="dim color(151)",
+        tag_font="bold white on color(65)",
+        tag_trash="bold white on color(130)",
+        tag_skip="white on color(239)",
+        tag_dry="bold white on color(67)",
+        tag_error="bold white on color(131)",
+        tag_verbose="white on color(235)",
         tree_root="bold color(255)",
         tree_family="color(183)",
         tree_file="color(252)",
@@ -80,12 +82,12 @@ THEMES: dict[str, ThemeSpec] = {
         spinner="point",
     ),
     "mono": ThemeSpec(
-        tag_font="bold",
-        tag_trash="bold",
-        tag_skip="dim",
-        tag_dry="bold",
+        tag_font="bold reverse",
+        tag_trash="bold reverse",
+        tag_skip="dim reverse",
+        tag_dry="bold underline",
         tag_error="bold reverse",
-        tag_verbose="dim",
+        tag_verbose="dim reverse",
         tree_root="bold",
         tree_family="bold",
         tree_file="",
@@ -96,12 +98,12 @@ THEMES: dict[str, ThemeSpec] = {
         spinner="line",
     ),
     "dracula": ThemeSpec(
-        tag_font="bold color(84)",
-        tag_trash="bold color(212)",
-        tag_skip="dim color(61)",
-        tag_dry="bold color(141)",
-        tag_error="bold color(203)",
-        tag_verbose="dim color(117)",
+        tag_font="bold black on color(84)",
+        tag_trash="bold black on color(212)",
+        tag_skip="white on color(240)",
+        tag_dry="bold black on color(141)",
+        tag_error="bold white on color(203)",
+        tag_verbose="dim white on color(238)",
         tree_root="bold color(255)",
         tree_family="bold color(141)",
         tree_file="color(255)",
@@ -126,16 +128,12 @@ def get_theme(name: str) -> ThemeSpec:
 
 
 def theme_preview_text(name: str, spec: ThemeSpec) -> str:
-    """Return a rich markup string showing the theme name styled in its own colors.
-
-    Example (for 'neon'):
-        [bold bright_green]neon[/]  [bold bright_green]Family[/]  [bright_green]file.ttf[/]  [bright_magenta]trash[/]  [bold bright_red]error[/]
-    """
-    parts = [
-        f"[{spec.tree_family}]{name:<10}[/]",
-        f"[{spec.tree_family}]Family[/]",
-        f"[{spec.tree_file}]file.ttf[/]",
-        f"[{spec.tree_trash}]trash[/]",
-        f"[{spec.tag_error}]error[/]",
+    """Return a rich markup string showing the theme name with pill-style tag swatches."""
+    pills = [
+        f"[{spec.tag_font}] FONT [/]",
+        f"[{spec.tag_trash}] TRASH [/]",
+        f"[{spec.tag_error}] ERROR [/]",
+        f"[{spec.tag_skip}] SKIP [/]",
     ]
-    return "  ".join(parts)
+    name_part = f"[{spec.tree_family}]{name:<10}[/]"
+    return name_part + "  " + " ".join(pills)

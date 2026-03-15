@@ -61,17 +61,20 @@ _TAG_STYLE_MAP: dict[str, str] = {
 
 
 def render_log_line(tag: str, message: str, theme: ThemeSpec) -> None:
-    """Print one styled log line.
+    """Print one styled log line with a background-colored pill tag.
 
-    Format: [TAG_STYLE]TAG[/] message
+    Format: [ TAG     ] message
+    The tag is padded to a fixed width and wrapped in background-color markup.
     Unknown tags fall back to tag_verbose style.
     """
     attr = _TAG_STYLE_MAP.get(tag, "tag_verbose")
     style = getattr(theme, attr, "")
+    # Pill: space + tag padded to 7 chars + space (9 chars total)
+    pill_text = f" {tag:<7} "
     if style:
-        tag_str = f"[{style}]{tag:<7}[/]"
+        tag_str = f"[{style}]{pill_text}[/]"
     else:
-        tag_str = f"{tag:<7}"
+        tag_str = pill_text
     console.print(f"{tag_str} {message}")
 
 
@@ -177,9 +180,13 @@ def build_proposal_tree(
     return tree
 
 
-def print_tree(tree: Tree) -> None:
-    """Render a Rich Tree to the console."""
-    console.print(tree)
+def print_tree(tree: Tree, pager: bool = False) -> None:
+    """Render a Rich Tree to the console, optionally inside a scrollable pager."""
+    if pager:
+        with console.pager(styles=True):
+            console.print(tree)
+    else:
+        console.print(tree)
 
 
 # ---------------------------------------------------------------------------

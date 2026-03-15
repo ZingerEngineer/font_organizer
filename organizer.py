@@ -181,7 +181,10 @@ def run(config: Config) -> None:
         tree = display.build_proposal_tree(
             config.directory, moves, non_fonts, theme, empty_dirs=pre_empty
         )
-        display.print_tree(tree)
+        # Use pager when the tree would overflow the terminal
+        total_items = len(moves) + len(non_fonts) + len(pre_empty)
+        use_pager = config.interactive and total_items > display.console.height
+        display.print_tree(tree, pager=use_pager)
 
     # 6. Confirmation gate (skip in dry-run — it's already preview-only)
     if not config.dry_run and config.interactive:
