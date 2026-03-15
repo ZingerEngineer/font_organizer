@@ -53,8 +53,10 @@ def trash_file(path: Path, dry_run: bool) -> None:
     if dry_run:
         return
     try:
-        from send2trash import send2trash, TrashPermissionError  # type: ignore
+        from send2trash import send2trash  # type: ignore
         send2trash(str(path))
+    except PermissionError:
+        # Let PermissionError propagate unwrapped so the caller can suggest sudo
+        raise
     except Exception as exc:
-        # Re-raise so the caller (organizer) can emit [ERROR]
         raise RuntimeError(f"Could not trash {path.name}: {exc}") from exc

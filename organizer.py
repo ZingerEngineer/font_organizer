@@ -57,6 +57,8 @@ def process_font(path: Path, root_dir: Path, config: Config) -> None:
     try:
         destination = move_font(path, family_dir, dry_run=False)
         log("FONT", f"{path.name} → {destination.parent.name}/", config)
+    except PermissionError:
+        log("ERROR", f"Permission denied: {path.name} — try: sudo font-organizer {path.parent}", config)
     except Exception as exc:
         log("ERROR", f"Failed to move {path.name}: {exc}", config)
 
@@ -70,6 +72,8 @@ def process_non_font(path: Path, config: Config) -> None:
     try:
         trash_file(path, dry_run=False)
         log("TRASH", f"{path.name} → recycle bin", config)
+    except PermissionError:
+        log("ERROR", f"Permission denied: {path.name} — try: sudo font-organizer {path.parent}", config)
     except RuntimeError as exc:
         log("ERROR", str(exc), config)
 

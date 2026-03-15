@@ -2,8 +2,32 @@
 
 ## Installation
 
+### Option A — pipx (recommended for CLI tools)
+
+Installs in an isolated environment and registers `font-organizer` globally:
+
+```bash
+pip install pipx
+pipx install .
+```
+
+### Option B — pip editable install (for development)
+
+```bash
+pip install -e .
+```
+
+### Option C — run directly without installing
+
 ```bash
 pip install -r requirements.txt
+python font_organizer.py DIRECTORY
+```
+
+After installing via pipx or pip, the command is available globally:
+
+```bash
+font-organizer ~/Downloads/fonts
 ```
 
 ---
@@ -11,7 +35,7 @@ pip install -r requirements.txt
 ## Basic Syntax
 
 ```
-python font_organizer.py DIRECTORY [--dry-run] [--verbose]
+font-organizer DIRECTORY [--dry-run] [--verbose]
 ```
 
 ---
@@ -23,9 +47,9 @@ python font_organizer.py DIRECTORY [--dry-run] [--verbose]
 The path to the folder containing fonts to organize. Scanned recursively — all subdirectories are included.
 
 ```bash
-python font_organizer.py ~/Downloads/fonts
-python font_organizer.py /mnt/storage/MyFonts
-python font_organizer.py .                      # current directory
+font-organizer ~/Downloads/fonts
+font-organizer /mnt/storage/MyFonts
+font-organizer .                      # current directory
 ```
 
 ---
@@ -37,7 +61,7 @@ python font_organizer.py .                      # current directory
 Preview all actions without touching the filesystem. No files are moved or deleted.
 
 ```bash
-python font_organizer.py ~/Downloads/fonts --dry-run
+font-organizer ~/Downloads/fonts --dry-run
 ```
 
 Output:
@@ -56,7 +80,7 @@ Use this before a real run to verify the script will do what you expect.
 Print detailed per-file information: the family name, where it came from (font metadata or filename heuristic), and every decision made.
 
 ```bash
-python font_organizer.py ~/Downloads/fonts --verbose
+font-organizer ~/Downloads/fonts --verbose
 ```
 
 Output:
@@ -78,11 +102,33 @@ Flags can be combined freely:
 
 ```bash
 # Verbose dry run — maximum detail, zero risk
-python font_organizer.py ~/Downloads/fonts --dry-run --verbose
+font-organizer ~/Downloads/fonts --dry-run --verbose
 
 # Live run with verbose output
-python font_organizer.py ~/Downloads/fonts --verbose
+font-organizer ~/Downloads/fonts --verbose
 ```
+
+---
+
+## Processing sudo-protected files
+
+Some directories (e.g. system font folders) are owned by root and require elevated permissions.
+
+If the script hits a permission error it will tell you:
+
+```
+[ERROR] Permission denied: Arial.ttf — try: sudo font-organizer /usr/share/fonts
+```
+
+Run the command with `sudo` to process those files:
+
+```bash
+sudo font-organizer /usr/share/fonts
+sudo font-organizer /usr/share/fonts --dry-run   # preview first
+```
+
+**Note:** When running as root, non-font files are sent to root's trash
+(`/root/.local/share/Trash` on Linux). They are still recoverable.
 
 ---
 
@@ -116,7 +162,7 @@ Downloads/fonts/
 Running:
 
 ```bash
-python font_organizer.py ~/Downloads/fonts
+font-organizer ~/Downloads/fonts
 ```
 
 Produces:
